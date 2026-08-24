@@ -9,6 +9,7 @@ import Foundation
 
 enum TSSettingsIndex: Int, CaseIterable {
     case displayMode = 0
+    case usesDateTime
     case passthroughMode
     case keepInPlace
     case hideAtSnapshot
@@ -23,6 +24,8 @@ enum TSSettingsIndex: Int, CaseIterable {
         switch self {
         case .displayMode:
             return HUDUserDefaultsKeyDisplayMode
+        case .usesDateTime:
+            return HUDUserDefaultsKeyUsesDateTime
         case .passthroughMode:
             return HUDUserDefaultsKeyPassthroughMode
         case .keepInPlace:
@@ -48,6 +51,8 @@ enum TSSettingsIndex: Int, CaseIterable {
         switch self {
         case .displayMode:
             return NSLocalizedString("Display Mode", comment: "TSSettingsIndex")
+        case .usesDateTime:
+            return NSLocalizedString("Date", comment: "TSSettingsIndex")
         case .passthroughMode:
             return NSLocalizedString("Pass-through", comment: "TSSettingsIndex")
         case .keepInPlace:
@@ -73,6 +78,8 @@ enum TSSettingsIndex: Int, CaseIterable {
         switch self {
         case .displayMode:
             return highlighted ? NSLocalizedString("FPS", comment: "TSSettingsIndex") : NSLocalizedString("Speed", comment: "TSSettingsIndex")
+        case .usesDateTime:
+            return highlighted ? NSLocalizedString("ON", comment: "TSSettingsIndex") : NSLocalizedString("OFF", comment: "TSSettingsIndex")
         case .passthroughMode:
             if restartRequired {
                 return NSLocalizedString("Re-open to apply", comment: "TSSettingsIndex")
