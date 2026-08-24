@@ -11,6 +11,8 @@
 
 @implementation HUDBackdropLabel {
     BOOL _isColorInvertEnabled;
+    CGFloat _filterBlurRadius;
+    CGFloat _filterContrastAmount;
     HUDBackdropView *_backdropView;
     CATextLayer *_backdropTextLayer;
 }
@@ -19,6 +21,8 @@
 {
     self = [super initWithCoder:coder];
     if (self) {
+        _filterBlurRadius = 50.0;
+        _filterContrastAmount = 1000.0;
         [self setupAppearance];
     }
     return self;
@@ -28,6 +32,8 @@
 {
     self = [super initWithFrame:frame];
     if (self) {
+        _filterBlurRadius = 50.0;
+        _filterContrastAmount = 1000.0;
         [self setupAppearance];
     }
     return self;
@@ -39,6 +45,15 @@
     [self setupAppearance];
 }
 
+- (void)setBackdropBlurRadius:(CGFloat)blurRadius contrastAmount:(CGFloat)contrastAmount
+{
+    BOOL changed = (_filterBlurRadius != blurRadius || _filterContrastAmount != contrastAmount);
+    _filterBlurRadius = blurRadius;
+    _filterContrastAmount = contrastAmount;
+    if (changed && _isColorInvertEnabled) {
+        [self setupAppearance];
+    }
+}
 - (void)setupAppearance
 {
     self.alpha = 0.85;
@@ -49,26 +64,6 @@
         {
             _backdropView = [[HUDBackdropView alloc] initWithFrame:self.bounds];
             _backdropView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-
-            CAFilter *blurFilter = [CAFilter filterWithName:kCAFilterGaussianBlur];
-            [blurFilter setValue:@(50.0) forKey:@"inputRadius"];  // radius 50pt
-            [blurFilter setValue:@YES forKey:@"inputNormalizeEdges"];  // do not use inputHardEdges
-
-            CAFilter *contrastFilter = [CAFilter filterWithName:kCAFilterColorContrast];
-            [contrastFilter setValue:@(1000.0) forKey:@"inputAmount"];   // 1000x
-
-            CAFilter *brightnessFilter = [CAFilter filterWithName:kCAFilterColorBrightness];
-            [brightnessFilter setValue:@(-0.285) forKey:@"inputAmount"];  // -28.5%
-
-            CAFilter *saturateFilter = [CAFilter filterWithName:kCAFilterColorSaturate];
-            [saturateFilter setValue:@(0.0) forKey:@"inputAmount"];
-
-            CAFilter *colorInvertFilter = [CAFilter filterWithName:kCAFilterColorInvert];
-
-            [_backdropView.layer setFilters:@[
-                blurFilter, brightnessFilter, contrastFilter,
-                saturateFilter, colorInvertFilter,
-            ]];
 
             _backdropTextLayer = [CATextLayer layer];
             _backdropTextLayer.contentsScale = self.layer.contentsScale * 1.2;
@@ -81,6 +76,26 @@
 
             [self addSubview:_backdropView];
         }
+
+        CAFilter *blurFilter = [CAFilter filterWithName:kCAFilterGaussianBlur];
+        [blurFilter setValue:@(_filterBlurRadius) forKey:@"inputRadius"];  // configurable radius (default 50pt, date mode uses larger value)
+        [blurFilter setValue:@YES forKey:@"inputNormalizeEdges"];  // do not use inputHardEdges
+
+        CAFilter *contrastFilter = [CAFilter filterWithName:kCAFilterColorContrast];
+        [contrastFilter setValue:@(_filterContrastAmount) forKey:@"inputAmount"];   // configurable contrast (default 1000x, date mode softened)
+
+        CAFilter *brightnessFilter = [CAFilter filterWithName:kCAFilterColorBrightness];
+        [brightnessFilter setValue:@(-0.285) forKey:@"inputAmount"];  // -28.5%
+
+        CAFilter *saturateFilter = [CAFilter filterWithName:kCAFilterColorSaturate];
+        [saturateFilter setValue:@(0.0) forKey:@"inputAmount"];
+
+        CAFilter *colorInvertFilter = [CAFilter filterWithName:kCAFilterColorInvert];
+
+        [_backdropView.layer setFilters:@[
+            blurFilter, brightnessFilter, contrastFilter,
+            saturateFilter, colorInvertFilter,
+        ]];
     }
     else
     {
