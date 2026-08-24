@@ -372,8 +372,10 @@ static const CGFloat _gAuthorLabelBottomConstraintConstantRegular = -80.f;
     // Remove some keys that are not persistent
     if ([self isLandscapeOrientation]) {
         [_userDefaults removeObjectForKey:HUDUserDefaultsKeyCurrentLandscapePositionY];
+        [_userDefaults removeObjectForKey:HUDUserDefaultsKeyCurrentLandscapePositionX];
     } else {
         [_userDefaults removeObjectForKey:HUDUserDefaultsKeyCurrentPositionY];
+        [_userDefaults removeObjectForKey:HUDUserDefaultsKeyCurrentPositionX];
     }
     [_userDefaults setObject:@(selectedMode) forKey:[self selectedModeKeyForCurrentOrientation]];
     [self saveUserDefaults];
