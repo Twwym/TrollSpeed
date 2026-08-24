@@ -488,7 +488,19 @@ static NSAttributedString *formattedDateTimeAttributedString(void)
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
             _dateFormatter = [[NSDateFormatter alloc] init];
-            _dateFormatter.locale = [NSLocale currentLocale];
+
+            /* The HUD runs as a root daemon whose own locale defaults to en_US,
+               so read the mobile user's language preference directly. */
+            NSArray<NSString *> *appleLanguages = [[NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/.GlobalPreferences.plist"] objectForKey:@"AppleLanguages"];
+            NSLocale *userLocale = nil;
+            NSString *firstLanguage = appleLanguages.firstObject;
+            if (firstLanguage.length > 0) {
+                NSString *canonicalID = [NSLocale canonicalLocaleIdentifierFromString:firstLanguage];
+                if (canonicalID.length > 0) {
+                    userLocale = [[NSLocale alloc] initWithLocaleIdentifier:canonicalID];
+                }
+            }
+            _dateFormatter.locale = userLocale ?: [NSLocale currentLocale];
             _dateFormatter.dateFormat = @"MM月dd EEE";
         });
 
@@ -626,6 +638,12 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     HUD_FONT_WEIGHT = (usesInvertedColor ? UIFontWeightMedium : UIFontWeightRegular);
     HUD_INACTIVE_OPACITY = (usesInvertedColor ? 1.0 : 0.667);
     [_blurView setEffect:(usesInvertedColor ? nil : _blurEffect)];
+    if ([self usesDateTime]) {
+        /* Date mode: large blur radius + soft contrast so the whole string shifts smoothly instead of flashing */
+        [_speedLabel setBackdropBlurRadius:180.0 contrastAmount:60.0];
+    } else {
+        [_speedLabel setBackdropBlurRadius:50.0 contrastAmount:1000.0];
+    }
     [_speedLabel setColorInvertEnabled:usesInvertedColor];
     [_lockedView setHidden:usesInvertedColor];
 
