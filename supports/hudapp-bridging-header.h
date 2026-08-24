@@ -17,7 +17,9 @@ typedef NSString * HUDUserDefaultsKey;
 static HUDUserDefaultsKey const HUDUserDefaultsKeySelectedMode = @"selectedMode";
 static HUDUserDefaultsKey const HUDUserDefaultsKeySelectedModeLandscape = @"selectedModeLandscape";
 static HUDUserDefaultsKey const HUDUserDefaultsKeyCurrentPositionY = @"currentPositionY";
+static HUDUserDefaultsKey const HUDUserDefaultsKeyCurrentPositionX = @"currentPositionX";
 static HUDUserDefaultsKey const HUDUserDefaultsKeyCurrentLandscapePositionY = @"currentLandscapePositionY";
+static HUDUserDefaultsKey const HUDUserDefaultsKeyCurrentLandscapePositionX = @"currentLandscapePositionX";
 static HUDUserDefaultsKey const HUDUserDefaultsKeyPassthroughMode = @"passthroughMode";
 static HUDUserDefaultsKey const HUDUserDefaultsKeySingleLineMode = @"singleLineMode";
 static HUDUserDefaultsKey const HUDUserDefaultsKeyUsesBitrate = @"usesBitrate";
@@ -28,6 +30,8 @@ static HUDUserDefaultsKey const HUDUserDefaultsKeyUsesInvertedColor = @"usesInve
 static HUDUserDefaultsKey const HUDUserDefaultsKeyKeepInPlace = @"keepInPlace";
 static HUDUserDefaultsKey const HUDUserDefaultsKeyHideAtSnapshot = @"hideAtSnapshot";
 static HUDUserDefaultsKey const HUDUserDefaultsKeyDisplayMode = @"displayMode";
+
+static HUDUserDefaultsKey const HUDUserDefaultsKeyUsesDateTime = @"usesDateTime";
 
 static HUDUserDefaultsKey const HUDUserDefaultsKeyUsesCustomFontSize = @"usesCustomFontSize";
 static HUDUserDefaultsKey const HUDUserDefaultsKeyRealCustomFontSize = @"realCustomFontSize";
