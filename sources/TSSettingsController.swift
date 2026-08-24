@@ -42,7 +42,20 @@ import UIKit
         return delegate?.settingHighlighted(key: HUDUserDefaultsKeyDisplayMode) ?? false
     }
 
+    private var isDateTimeMode: Bool {
+        return delegate?.settingHighlighted(key: HUDUserDefaultsKeyUsesDateTime) ?? false
+    }
+
     open override func settingEnabled(index: Int) -> Bool {
+        if isDateTimeMode {
+            let setting = TSSettingsIndex.allCases[index]
+            switch setting {
+            case .displayMode, .singleLineMode, .usesArrowPrefixes, .usesBitrate:
+                return false
+            default:
+                return true
+            }
+        }
         guard isFPSMode else { return true }
         let setting = TSSettingsIndex.allCases[index]
         switch setting {
@@ -70,8 +83,8 @@ import UIKit
         delegate?.settingDidSelect(key: settingKey(index: index))
         completion()
 
-        // When display mode is toggled, update enabled/disabled state of affected cells in-place
-        if index == TSSettingsIndex.displayMode.rawValue {
+        // When display mode or date & time is toggled, update enabled/disabled state of affected cells in-place
+        if index == TSSettingsIndex.displayMode.rawValue || index == TSSettingsIndex.usesDateTime.rawValue {
             for cell in collectionView.visibleCells {
                 if let settingCell = cell as? SPLarkSettingsCollectionViewCell,
                    let indexPath = collectionView.indexPath(for: settingCell) {
