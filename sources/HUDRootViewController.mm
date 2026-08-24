@@ -130,6 +130,7 @@ static uint8_t HUD_SHOW_SECOND_SPEED_IN_NEW_LINE = 0;
 static const char *HUD_UPLOAD_PREFIX = "▲";
 static const char *HUD_DOWNLOAD_PREFIX = "▼";
 static uint8_t HUD_DISPLAY_MODE = 0;  // 0=Speed, 1=FPS
+static uint8_t HUD_SHOW_DATETIME = 0;  // overrides display mode when set
 
 typedef struct {
     uint64_t inputBytes;
@@ -475,6 +476,31 @@ static NSAttributedString *formattedFPSAttributedString(BOOL isFocused)
     }
 }
 
+#pragma mark - DateTime
+
+static NSAttributedString *formattedDateTimeAttributedString(void)
+{
+    @autoreleasepool
+    {
+        shouldUpdateSpeedLabel = YES;
+
+        static NSDateFormatter *_dateFormatter = nil;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            _dateFormatter = [[NSDateFormatter alloc] init];
+            _dateFormatter.locale = [NSLocale currentLocale];
+            _dateFormatter.dateFormat = @"MM月dd EEE";
+        });
+
+        NSString *dateString = [_dateFormatter stringFromDate:[NSDate date]];
+        NSAttributedString *attributedString = [[NSAttributedString alloc] initWithString:dateString attributes:@{
+            NSFontAttributeName: [UIFont boldSystemFontOfSize:10.0]
+        }];
+
+        return attributedString;
+    }
+}
+
 #pragma mark - HUDRootViewController
 
 @interface HUDRootViewController (Troll)
@@ -613,6 +639,8 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     BOOL displayMode = [self displayMode];
     HUD_DISPLAY_MODE = displayMode;
 
+    HUD_SHOW_DATETIME = [self usesDateTime] ? 1 : 0;
+
     prevInputBytes = 0;
     prevOutputBytes = 0;
     needsBaselineReset = YES;
@@ -673,6 +701,13 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
 {
     [self loadUserDefaults:NO];
     NSNumber *mode = [_userDefaults objectForKey:HUDUserDefaultsKeyDisplayMode];
+    return mode != nil ? [mode boolValue] : NO;
+}
+
+- (BOOL)usesDateTime
+{
+    [self loadUserDefaults:NO];
+    NSNumber *mode = [_userDefaults objectForKey:HUDUserDefaultsKeyUsesDateTime];
     return mode != nil ? [mode boolValue] : NO;
 }
 
@@ -750,6 +785,34 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
 {
     [self loadUserDefaults:NO];
     [_userDefaults setObject:[NSNumber numberWithDouble:positionY] forKey:HUDUserDefaultsKeyCurrentLandscapePositionY];
+    [self saveUserDefaults];
+}
+
+- (CGFloat)currentPositionX
+{
+    [self loadUserDefaults:NO];
+    NSNumber *positionX = [_userDefaults objectForKey:HUDUserDefaultsKeyCurrentPositionX];
+    return positionX != nil ? [positionX doubleValue] : CGFLOAT_MAX;
+}
+
+- (void)setCurrentPositionX:(CGFloat)positionX
+{
+    [self loadUserDefaults:NO];
+    [_userDefaults setObject:[NSNumber numberWithDouble:positionX] forKey:HUDUserDefaultsKeyCurrentPositionX];
+    [self saveUserDefaults];
+}
+
+- (CGFloat)currentLandscapePositionX
+{
+    [self loadUserDefaults:NO];
+    NSNumber *positionX = [_userDefaults objectForKey:HUDUserDefaultsKeyCurrentLandscapePositionX];
+    return positionX != nil ? [positionX doubleValue] : CGFLOAT_MAX;
+}
+
+- (void)setCurrentLandscapePositionX:(CGFloat)positionX
+{
+    [self loadUserDefaults:NO];
+    [_userDefaults setObject:[NSNumber numberWithDouble:positionX] forKey:HUDUserDefaultsKeyCurrentLandscapePositionX];
     [self saveUserDefaults];
 }
 
@@ -835,7 +898,9 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
 {
     log_debug(OS_LOG_DEFAULT, "updateSpeedLabel");
     NSAttributedString *attributedText;
-    if (HUD_DISPLAY_MODE == 1) {
+    if (HUD_SHOW_DATETIME) {
+        attributedText = formattedDateTimeAttributedString();
+    } else if (HUD_DISPLAY_MODE == 1) {
         attributedText = formattedFPSAttributedString(_isFocused);
     } else {
         attributedText = formattedAttributedString(_isFocused);
@@ -940,6 +1005,8 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     BOOL isCentered = (selectedMode == HUDPresetPositionTopCenter || selectedMode == HUDPresetPositionTopCenterMost);
     BOOL isCenteredMost = (selectedMode == HUDPresetPositionTopCenterMost);
     BOOL isPad = ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad);
+
+    BOOL dateTimeMode = (HUD_SHOW_DATETIME != 0);
 
     HUD_SHOW_DOWNLOAD_SPEED_FIRST = isCentered;
     HUD_SHOW_SECOND_SPEED_IN_NEW_LINE = !isCentered;
@@ -1058,19 +1125,36 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
         [_speedLabel.bottomAnchor constraintEqualToAnchor:_contentView.bottomAnchor],
     ]];
 
+    CGFloat savedLeadingInset = 10.0;
+    {
+        CGFloat currentPositionX = (isLandscape ? [self currentLandscapePositionX] : [self currentPositionX]);
+        if (currentPositionX < CGFLOAT_MAX) {
+            savedLeadingInset = currentPositionX;
+        }
+    }
+
     _centerXConstraint = [_speedLabel.centerXAnchor constraintEqualToAnchor:layoutGuide.centerXAnchor];
     if (isCentered) {
         [_constraints addObject:_centerXConstraint];
     }
 
-    _leadingConstraint = [_speedLabel.leadingAnchor constraintEqualToAnchor:_contentView.leadingAnchor constant:10];
+    _leadingConstraint = [_speedLabel.leadingAnchor constraintEqualToAnchor:_contentView.leadingAnchor constant:savedLeadingInset];
     if (selectedMode == HUDPresetPositionTopLeft) {
         [_constraints addObject:_leadingConstraint];
     }
 
-    _trailingConstraint = [_speedLabel.trailingAnchor constraintEqualToAnchor:_contentView.trailingAnchor constant:-10];
+    _trailingConstraint = [_speedLabel.trailingAnchor constraintEqualToAnchor:_contentView.trailingAnchor constant:-savedLeadingInset];
     if (selectedMode == HUDPresetPositionTopRight) {
         [_constraints addObject:_trailingConstraint];
+    }
+
+    if (dateTimeMode)
+    {
+        /* Date mode: generous width limit so the formatted date never truncates */
+        [_constraints addObjectsFromArray:@[
+            [_speedLabel.widthAnchor constraintLessThanOrEqualToConstant:150.0],
+            [_speedLabel.heightAnchor constraintEqualToConstant:12.0],
+        ]];
     }
 
     [_constraints addObjectsFromArray:@[
@@ -1244,26 +1328,50 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
         return;
     }
 
+    BOOL isRightAligned = (selectedMode == HUDPresetPositionTopRight);
+
     static CGFloat beginConstantY = 0.0;
+    static CGFloat beginConstantX = 0.0;
     if (sender.state == UIGestureRecognizerStatePossible || sender.state == UIGestureRecognizerStateBegan)
     {
         beginConstantY = _topConstraint.constant;
+        beginConstantX = (isRightAligned ? -_trailingConstraint.constant : _leadingConstraint.constant);
         [self onFocus:sender.view scaleFactor:0.2 duration:0.1 beginFromInitialState:NO blurWhenDone:NO];
     }
     else
     {
         if (sender.state == UIGestureRecognizerStateChanged || sender.state == UIGestureRecognizerStateEnded)
         {
-            CGFloat currentOffsetY = [sender translationInView:sender.view.superview].y;
-            [_topConstraint setConstant:beginConstantY + currentOffsetY];
+            CGPoint translation = [sender translationInView:sender.view.superview];
+            [_topConstraint setConstant:beginConstantY + translation.y];
+
+            if (!isCentered)
+            {
+                if (isRightAligned)
+                    [_trailingConstraint setConstant:-(beginConstantX - translation.x)];
+                else
+                    [_leadingConstraint setConstant:beginConstantX + translation.x];
+            }
         }
 
         if (sender.state == UIGestureRecognizerStateEnded)
         {
-            if (UIInterfaceOrientationIsLandscape(_orientation))
+            BOOL isLandscapeOrientationNow = UIInterfaceOrientationIsLandscape(_orientation);
+
+            if (isLandscapeOrientationNow)
                 [self setCurrentLandscapePositionY:_topConstraint.constant];
             else
                 [self setCurrentPositionY:_topConstraint.constant];
+
+            if (!isCentered)
+            {
+                CGFloat constantX = (isRightAligned ? _trailingConstraint.constant : _leadingConstraint.constant);
+                CGFloat insetX = (isRightAligned ? -constantX : constantX);
+                if (isLandscapeOrientationNow)
+                    [self setCurrentLandscapePositionX:insetX];
+                else
+                    [self setCurrentPositionX:insetX];
+            }
         }
 
         if (sender.state != UIGestureRecognizerStateChanged)
