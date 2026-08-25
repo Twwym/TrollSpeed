@@ -92,6 +92,12 @@ static void SpringBoardLockStatusChanged
             needsBaselineReset = YES;
             needsFPSBaselineReset = YES;
             [rootViewController.view setHidden:NO];
+            if (HUD_SHOW_DATETIME)
+            {
+                /* Layer 4: catch up on any missed day change while the HUD was hidden */
+                _lastDateString = nil;
+                [rootViewController updateSpeedLabel];
+            }
             [rootViewController resetLoopTimer];
         }
         else
@@ -330,6 +336,7 @@ static NSAttributedString *attributedUploadPrefix = nil;
 static NSAttributedString *attributedDownloadPrefix = nil;
 static NSAttributedString *attributedInlineSeparator = nil;
 static NSAttributedString *attributedLineSeparator = nil;
+static NSString *_lastDateString = nil;  /* date mode render cache */
 
 static NSAttributedString *formattedAttributedString(BOOL isFocused)
 {
@@ -552,6 +559,10 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
         [self reloadUserDefaults];
     });
 
+    /* Layer 1: system pushes day changes & clock adjustments to us */
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(calendarOrClockChanged:) name:NSCalendarDayChanged object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(calendarOrClockChanged:) name:NSSystemClockDidChange object:nil];
+
     CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
 
     CFNotificationCenterAddObserver(
@@ -578,6 +589,15 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     [userDefaults addObserver:self forKeyPath:HUDUserDefaultsKeyUsesCustomOffset options:NSKeyValueObservingOptionNew context:nil];
     [userDefaults addObserver:self forKeyPath:HUDUserDefaultsKeyRealCustomOffsetX options:NSKeyValueObservingOptionNew context:nil];
     [userDefaults addObserver:self forKeyPath:HUDUserDefaultsKeyRealCustomOffsetY options:NSKeyValueObservingOptionNew context:nil];
+}
+
+- (void)calendarOrClockChanged:(NSNotification *)notification
+{
+    if (!HUD_SHOW_DATETIME)
+        return;
+
+    _lastDateString = nil;
+    [self updateSpeedLabel];
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
@@ -666,6 +686,7 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     needsFPSBaselineReset = YES;
     attributedUploadPrefix = nil;
     attributedDownloadPrefix = nil;
+    _lastDateString = nil;  /* force a fresh date render after mode/setting changes */
 
     [self removeAllAnimations];
     [self resetGestureRecognizers];
@@ -918,6 +939,10 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     NSAttributedString *attributedText;
     if (HUD_SHOW_DATETIME) {
         attributedText = formattedDateTimeAttributedString();
+        if (_lastDateString && [attributedText.string isEqualToString:_lastDateString]) {
+            return;  /* date unchanged, skip re-render entirely */
+        }
+        _lastDateString = [attributedText.string copy];
     } else if (HUD_DISPLAY_MODE == 1) {
         attributedText = formattedFPSAttributedString(_isFocused);
     } else {
@@ -987,10 +1012,48 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     notify_post(NOTIFY_LAUNCHED_HUD);
 }
 
+static NSDate *NextMidnightCheckDate(void)
+{
+    /* Start of today via calendar arithmetic (DST-safe), then add one day */
+    NSCalendar *calendar = [NSCalendar currentCalendar];
+    NSDate *startOfToday = nil;
+    [calendar rangeOfUnit:NSCalendarUnitDay startDate:&startOfToday interval:NULL forDate:[NSDate date]];
+    NSDateComponents *oneDay = [[NSDateComponents alloc] init];
+    oneDay.day = 1;
+    NSDate *startOfTomorrow = [calendar dateByAddingComponents:oneDay toDate:startOfToday options:0];
+    return [startOfTomorrow dateByAddingTimeInterval:60.0];  /* shortly after midnight */
+}
+
 - (void)resetLoopTimer
 {
     [_timer invalidate];
+    _timer = nil;
+
+    if (HUD_SHOW_DATETIME)
+    {
+        /* Date mode needs no periodic refresh; Layer 2 schedules a single check right after the next midnight */
+        NSTimer *midnightTimer = [NSTimer timerWithTimeInterval:[NextMidnightCheckDate() timeIntervalSinceNow]
+                                                         target:self
+                                                       selector:@selector(midnightCheckFired:)
+                                                       userInfo:nil
+                                                        repeats:NO];
+        midnightTimer.tolerance = 60.0;
+        [[NSRunLoop mainRunLoop] addTimer:midnightTimer forMode:NSRunLoopCommonModes];
+        _timer = midnightTimer;
+        return;
+    }
+
     _timer = [NSTimer scheduledTimerWithTimeInterval:UPDATE_INTERVAL target:self selector:@selector(updateSpeedLabel) userInfo:nil repeats:YES];
+}
+
+- (void)midnightCheckFired:(NSTimer *)timer
+{
+    if (!HUD_SHOW_DATETIME)
+        return;
+
+    _lastDateString = nil;
+    [self updateSpeedLabel];
+    [self resetLoopTimer];  /* schedule the check for the following midnight */
 }
 
 - (void)stopLoopTimer
