@@ -13,6 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)passthroughMode;
 - (void)resetLoopTimer;
 - (void)stopLoopTimer;
+- (void)updateSpeedLabel;
 @end
 
 NS_ASSUME_NONNULL_END
