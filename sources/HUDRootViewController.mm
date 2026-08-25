@@ -39,6 +39,8 @@ CFIndex CARenderServerGetDirtyFrameCount(void *);
 
 static BOOL needsBaselineReset = YES;
 static BOOL needsFPSBaselineReset = YES;
+static uint8_t HUD_SHOW_DATETIME = 0;  /* overrides display mode when set (declared early for the C callbacks below) */
+static NSString *_lastDateString = nil;  /* date mode render cache */
 
 static void LaunchServicesApplicationStateChanged
 (CFNotificationCenterRef center,
@@ -136,7 +138,6 @@ static uint8_t HUD_SHOW_SECOND_SPEED_IN_NEW_LINE = 0;
 static const char *HUD_UPLOAD_PREFIX = "▲";
 static const char *HUD_DOWNLOAD_PREFIX = "▼";
 static uint8_t HUD_DISPLAY_MODE = 0;  // 0=Speed, 1=FPS
-static uint8_t HUD_SHOW_DATETIME = 0;  // overrides display mode when set
 
 typedef struct {
     uint64_t inputBytes;
@@ -336,7 +337,6 @@ static NSAttributedString *attributedUploadPrefix = nil;
 static NSAttributedString *attributedDownloadPrefix = nil;
 static NSAttributedString *attributedInlineSeparator = nil;
 static NSAttributedString *attributedLineSeparator = nil;
-static NSString *_lastDateString = nil;  /* date mode render cache */
 
 static NSAttributedString *formattedAttributedString(BOOL isFocused)
 {
@@ -559,9 +559,10 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
         [self reloadUserDefaults];
     });
 
-    /* Layer 1: system pushes day changes & clock adjustments to us */
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(calendarOrClockChanged:) name:NSCalendarDayChanged object:nil];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(calendarOrClockChanged:) name:NSSystemClockDidChange object:nil];
+    /* Layer 1: system pushes day changes & clock adjustments to us
+       (literal name strings — the named constants are not visible in every SDK config) */
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(calendarOrClockChanged:) name:@"NSCalendarDayChanged" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(calendarOrClockChanged:) name:@"NSSystemClockDidChange" object:nil];
 
     CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
 
