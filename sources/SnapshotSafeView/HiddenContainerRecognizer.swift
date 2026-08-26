@@ -21,15 +21,27 @@ struct HiddenContainerRecognizer {
 
     func getHiddenContainer(from view: UIView) throws -> UIView {
         let containerName = try getHiddenContainerTypeInStringRepresentation()
-        let containers = view.subviews.filter { subview in
+
+        // Exact match for known iOS versions
+        let exactMatches = view.subviews.filter { subview in
             type(of: subview).description() == containerName
         }
-
-        guard let container = containers.first else {
-            throw Error.desiredContainerWasNotFound(containerName)
+        if let container = exactMatches.first {
+            return container
         }
 
-        return container
+        // iOS 17+ fallback: Apple renamed/restructured the secure canvas,
+        // so fall back to any private canvas/content-like subview.
+        let fuzzyMatches = view.subviews.filter { subview in
+            let className = String(describing: type(of: subview))
+            return className.hasPrefix("_")
+                && (className.contains("Canvas") || className.contains("ContentView"))
+        }
+        if let container = fuzzyMatches.first {
+            return container
+        }
+
+        throw Error.desiredContainerWasNotFound(containerName)
     }
 
     func getHiddenContainerTypeInStringRepresentation() throws -> String {
