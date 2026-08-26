@@ -564,6 +564,9 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(calendarOrClockChanged:) name:@"NSCalendarDayChanged" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(calendarOrClockChanged:) name:@"NSSystemClockDidChange" object:nil];
 
+    /* Screen recording is a live state we can reliably detect — hide when active if the toggle allows */
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(screenCapturedStateChanged:) name:UIScreen.capturedDidChangeNotification object:nil];
+
     CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
 
     CFNotificationCenterAddObserver(
@@ -599,6 +602,14 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
 
     _lastDateString = nil;
     [self updateSpeedLabel];
+}
+
+- (void)screenCapturedStateChanged:(NSNotification *)notification
+{
+    /* Screen recording CAN be reliably detected via the public isCaptured flag.
+       Still screenshots have no pre-capture event — best effort only. */
+    BOOL shouldHide = [UIScreen mainScreen].isCaptured && [self hideAtSnapshot];
+    [_containerView setHidden:shouldHide];
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
@@ -674,6 +685,7 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     } else {
         [_containerView setupContainerAsDisplayContentInScreenshots];
     }
+    [self screenCapturedStateChanged:nil];  /* re-sync visibility with the live capture state */
 
     BOOL displayMode = [self displayMode];
     HUD_DISPLAY_MODE = displayMode;
@@ -1005,6 +1017,7 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     [_contentView setUserInteractionEnabled:YES];
 
     [self reloadUserDefaults];
+    [self screenCapturedStateChanged:nil];  /* sync initial recording state */
 }
 
 - (void)viewDidAppear:(BOOL)animated
