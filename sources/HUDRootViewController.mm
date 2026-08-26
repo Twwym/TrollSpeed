@@ -565,7 +565,7 @@ static const CACornerMask kCornerMaskAll = kCALayerMinXMinYCorner | kCALayerMaxX
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(calendarOrClockChanged:) name:@"NSSystemClockDidChange" object:nil];
 
     /* Screen recording is a live state we can reliably detect — hide when active if the toggle allows */
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(screenCapturedStateChanged:) name:UIScreen.capturedDidChangeNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(screenCapturedStateChanged:) name:@"UIScreenCapturedDidChangeNotification" object:nil];
 
     CFNotificationCenterRef darwinCenter = CFNotificationCenterGetDarwinNotifyCenter();
 
